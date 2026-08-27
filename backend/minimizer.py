@@ -1,15 +1,15 @@
-from models import TestCondition
-from runner import run_test
+from .models import TestCondition
+from .runner import run_test
 
 
 def minimize_failure(condition, target_function):
     """
-    Find the smallest set of conditions that still reproduces the failure.
+    Minimize a failing test condition by simplifying one parameter at a time.
+    A change is kept only if the failure is still reproduced.
     """
 
     current = condition
 
-    # Neutral/default values for each parameter.
     neutral_values = {
         "input_value": 0,
         "delay_ms": 0,
@@ -39,6 +39,9 @@ def minimize_failure(condition, target_function):
         result = run_test(candidate, target_function)
 
         if result.failed:
+            print(f"  ✓ Simplified {parameter}")
             current = candidate
+        else:
+            print(f"  ✗ Kept {parameter} = {getattr(current, parameter)}")
 
     return current

@@ -16,4 +16,5 @@ class FailureResult:
     condition: TestCondition | None
     error_message: str
     attempts: int
+    failure_count: int
     confidence: float

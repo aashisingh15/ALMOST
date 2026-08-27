@@ -1,23 +1,35 @@
-from models import TestCondition, FailureResult
+from .models import TestCondition, FailureResult
 
 
-def run_test(condition: TestCondition, target_function) -> FailureResult:
-    try:
-        target_function(condition)
+def run_test(
+    condition: TestCondition,
+    target_function,
+    attempts: int = 10,
+) -> FailureResult:
+    """
+    Run the target function multiple times to detect intermittent failures.
+    """
 
-        return FailureResult(
-            failed=False,
-            condition=condition,
-            error_message="",
-            attempts=1,
-            confidence=0.0,
-        )
+    failure_count = 0
+    last_error = ""
 
-    except Exception as error:
-        return FailureResult(
-            failed=True,
-            condition=condition,
-            error_message=str(error),
-            attempts=1,
-            confidence=1.0,
-        )
+    for _ in range(attempts):
+        try:
+            target_function(condition)
+
+        except Exception as error:
+            failure_count += 1
+            last_error = str(error)
+
+    failed = failure_count > 0
+
+    confidence = failure_count / attempts
+
+    return FailureResult(
+        failed=failed,
+        condition=condition,
+        error_message=last_error,
+        attempts=attempts,
+        failure_count=failure_count,
+        confidence=confidence,
+    )

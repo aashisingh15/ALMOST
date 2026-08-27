@@ -1,7 +1,7 @@
 from itertools import product
 
-from models import TestCondition, FailureResult
-from runner import run_test
+from .models import TestCondition, FailureResult
+from .runner import run_test
 
 
 def generate_conditions():
