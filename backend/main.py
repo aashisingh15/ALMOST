@@ -1,5 +1,4 @@
-from .search import search_for_failure
-from .minimizer import minimize_failure
+from .analyzer import analyze_failure
 
 
 def demo_bug(condition):
@@ -18,43 +17,34 @@ def main():
 
     print("\nSearching for intermittent failures...\n")
 
-    results = search_for_failure(demo_bug)
+    report = analyze_failure(demo_bug)
 
-    failures = [result for result in results if result.failed]
-
-    if not failures:
+    if report["failures_found"] == 0:
         print("No failures found.")
         return
 
-    print(f"Total failures found: {len(failures)}")
-
-    # Use the first failure as the representative failure.
-    representative = failures[0]
+    print(f"Total conditions tested: {report['conditions_tested']}")
+    print(f"Total failures found: {report['failures_found']}")
 
     print("\n" + "=" * 40)
     print("FAILURE ANALYSIS")
     print("=" * 40)
 
-    print(f"\nError: {representative.error_message}")
-    print(f"Occurrences: {len(failures)}")
+    print(f"\nError: {report['error']}")
+    print(f"Occurrences: {report['occurrences']}")
+    print(f"Confidence: {report['confidence']:.0%}")
 
-    print("\nStarting minimization...")
-
-    minimal = minimize_failure(
-        representative.condition,
-        demo_bug
-    )
+    recipe = report["minimal_recipe"]
 
     print("\n" + "=" * 40)
     print("MINIMAL FAILURE RECIPE")
     print("=" * 40)
 
-    print(f"Input: {minimal.input_value}")
-    print(f"Delay: {minimal.delay_ms}ms")
-    print(f"Execution order: {minimal.execution_order}")
-    print(f"Load: {minimal.load}")
+    print(f"Input: {recipe['input_value']}")
+    print(f"Delay: {recipe['delay_ms']}ms")
+    print(f"Execution order: {recipe['execution_order']}")
+    print(f"Load: {recipe['load']}")
 
 
 if __name__ == "__main__":
     main()
-    
