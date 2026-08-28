@@ -1,4 +1,13 @@
 import { useEffect, useState } from "react";
+import { TextEffect } from "./components/motion-primitives/text-effect";
+
+import DashboardHeader from "./components/DashboardHeader";
+import ConditionPanel from "./components/ConditionPanel";
+import EngineScanner from "./components/EngineScanner";
+import FailureResult from "./components/FailureResult";
+import SearchProgress from "./components/SearchProgress";
+import TestHistory from "./components/TestHistory";
+
 import "./App.css";
 
 const scenarios = {
@@ -30,15 +39,75 @@ const scenarios = {
   },
 };
 
+const initialHistory = [
+  {
+    id: "#042",
+    scenario: "Race Condition",
+    status: "FAILURE FOUND",
+    tests: 2481,
+    time: "2m ago",
+  },
+  {
+    id: "#041",
+    scenario: "Network Timing Bug",
+    status: "NO FAILURE",
+    tests: 1942,
+    time: "8m ago",
+  },
+  {
+    id: "#040",
+    scenario: "Rare Input Bug",
+    status: "FAILURE FOUND",
+    tests: 4821,
+    time: "17m ago",
+  },
+  {
+    id: "#039",
+    scenario: "Cache Invalidation",
+    status: "NO FAILURE",
+    tests: 3168,
+    time: "31m ago",
+  },
+];
+
 function App() {
   const [scenario, setScenario] = useState("race");
   const [progress, setProgress] = useState(0);
   const [searching, setSearching] = useState(false);
   const [found, setFound] = useState(false);
-  const [tests, setTests] = useState(0);
-  const [failures, setFailures] = useState(0);
+  const [tests, setTests] = useState(2481);
+  const [failures, setFailures] = useState(1);
+  const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState(initialHistory);
 
   const current = scenarios[scenario];
+
+  const visibleTests = searching
+    ? Math.floor(progress * 18)
+    : tests;
+
+  const visibleFailures = searching
+    ? progress >= 82
+      ? 1
+      : 0
+    : failures;
+
+  const statusLabel = searching
+    ? "SEARCHING"
+    : found
+    ? "FAILURE FOUND"
+    : "READY";
+
+  const searchPhase = searching
+    ? [
+        "Input mutation",
+        "Timing jitter",
+        "Order permutation",
+        "Load pressure",
+      ][Math.min(3, Math.floor(progress / 25))]
+    : found
+    ? "Recipe minimized"
+    : "No active run";
 
   const startSearch = () => {
     setSearching(true);
@@ -46,36 +115,54 @@ function App() {
     setProgress(0);
     setTests(0);
     setFailures(0);
+    setCopied(false);
   };
 
   useEffect(() => {
-    if (!searching) return;
+    if (!searching) return undefined;
 
-    const interval = setInterval(() => {
-      setProgress((previousProgress) => {
-        const nextProgress = previousProgress + 2;
+    const interval = window.setInterval(() => {
+      setProgress((previous) =>
+        Math.min(previous + 2, 100)
+      );
+    }, 65);
 
-        setTests(Math.floor(nextProgress * 18));
-
-        if (nextProgress > 78) {
-          setFailures(1);
-        }
-
-        if (nextProgress >= 100) {
-          clearInterval(interval);
-
-          setSearching(false);
-          setFound(true);
-
-          return 100;
-        }
-
-        return nextProgress;
-      });
-    }, 70);
-
-    return () => clearInterval(interval);
+    return () => window.clearInterval(interval);
   }, [searching]);
+
+  useEffect(() => {
+    if (!searching || progress < 100) return undefined;
+
+    const completion = window.setTimeout(() => {
+      setSearching(false);
+      setFound(true);
+      setFailures(1);
+      setTests(1800);
+
+      setHistory((previous) => [
+        {
+          id: "#043",
+          scenario: current.name,
+          status: "FAILURE FOUND",
+          tests: 1800,
+          time: "just now",
+        },
+        ...previous,
+      ].slice(0, 5));
+    }, 0);
+
+    return () => window.clearTimeout(completion);
+  }, [progress, searching, current]);
+
+  const changeScenario = (event) => {
+    setScenario(event.target.value);
+    setSearching(false);
+    setFound(false);
+    setProgress(0);
+    setTests(0);
+    setFailures(0);
+    setCopied(false);
+  };
 
   const copyRecipe = async () => {
     const recipe = `ALMOST Failure Recipe
@@ -86,585 +173,435 @@ Execution Order: ${current.order}
 Load: ${current.load}`;
 
     try {
-      await navigator.clipboard.writeText(recipe);
-      alert("Failure recipe copied!");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(recipe);
+      }
+
+      setCopied(true);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1800);
     } catch {
-      alert("Could not copy recipe.");
+      setCopied(false);
     }
   };
 
   return (
-    <div className="app">
-      {/* BACKGROUND */}
+    <div className="app-shell">
 
-      <div className="grid-background" />
+      <div className="ambient-grid" />
+      <div className="ambient-orb orb-purple" />
+      <div className="ambient-orb orb-cyan" />
+      <div className="ambient-orb orb-pink" />
+      <div className="scanlines" />
 
-      <div className="orb orb-purple" />
-      <div className="orb orb-cyan" />
-      <div className="orb orb-pink" />
+      <DashboardHeader
+        searching={searching}
+        found={found}
+        projectStatus="PROJECT ONLINE"
+      />
 
-      {/* ================= HEADER ================= */}
+      <main className="dashboard-shell">
 
-      <header className="header">
-        <div className="brand">
-          <div className="brand-mark">
-            <span />
-            <span />
-            <span />
-          </div>
-
-          <div>
-            <div className="brand-name">ALMOST</div>
-
-            <div className="brand-subtitle">
-              INTERMITTENT BUG DISCOVERY ENGINE
-            </div>
-          </div>
-        </div>
-
-        <div className="system-status">
-          <span className="status-dot" />
-          SYSTEM ONLINE
-        </div>
-      </header>
-
-      <main>
         {/* ================= HERO ================= */}
 
-        <section className="hero">
-          <div className="eyebrow">
-            <span>01</span>
+        <section className="hero-section">
 
-            INTELLIGENT FAILURE SEARCH
+          <div className="hero-copy">
 
-            <span>// LIVE ENGINE</span>
+            <div className="eyebrow">
+              <span>ALMOST / 001</span>
+              <i />
+              INTELLIGENT FAILURE SEARCH
+              <b>LIVE ENGINE</b>
+            </div>
+
+            <TextEffect
+              as="h1"
+              preset="fade-in-blur"
+              per="word"
+              className="hero-title"
+            >
+              Find the conditions behind almost bugs.
+            </TextEffect>
+
+            <p>
+              Probe the space between pass and fail. ALMOST
+              mutates input, timing, execution order, and load
+              until an intermittent failure leaves a
+              reproducible trace.
+            </p>
+
           </div>
 
-          <h1>
-            Find the conditions
-            <br />
-            behind <span>almost</span> bugs.
-          </h1>
+          <div className="hero-aside">
 
-          <p>
-            ALMOST explores input, timing, execution order and environment
-            combinations to uncover failures ordinary tests miss.
-          </p>
+            <span className="aside-label">
+              ACTIVE TARGET
+            </span>
+
+            <strong>
+              {current.name}
+            </strong>
+
+            <span className="aside-rule" />
+
+            <span className="aside-meta">
+              target_app / mock mode
+            </span>
+
+          </div>
+
         </section>
 
-        {/* ================= MAIN ENGINE ================= */}
+        {/* ================= METRICS ================= */}
 
-        <section className="engine">
+        <section
+          className="metric-strip"
+          aria-label="Project metrics"
+        >
 
-          {/* ---------- LEFT CONTROL PANEL ---------- */}
+          <div className="metric-card">
 
-          <div className="control-panel panel">
-            <div className="panel-title">
-              <span>◆</span>
-              SEARCH CONFIGURATION
+            <span>
+              PROJECT STATUS
+            </span>
+
+            <strong className="metric-online">
+              <i />
+              OPERATIONAL
+            </strong>
+
+            <small>
+              target_app connected
+            </small>
+
+          </div>
+
+          <div className="metric-card">
+
+            <span>
+              TESTS RUN
+            </span>
+
+            <strong>
+              {visibleTests.toLocaleString()}
+            </strong>
+
+            <small>
+              <b className="metric-up">
+                ↑ 18.6%
+              </b>{" "}
+              this session
+            </small>
+
+          </div>
+
+          <div className="metric-card">
+
+            <span>
+              FAILURES FOUND
+            </span>
+
+            <strong className="metric-hot">
+              {visibleFailures}
+            </strong>
+
+            <small>
+              {found
+                ? "recipe available"
+                : "awaiting signal"}
+            </small>
+
+          </div>
+
+          <div className="metric-card">
+
+            <span>
+              SEARCH STATUS
+            </span>
+
+            <strong
+              className={
+                searching
+                  ? "metric-searching"
+                  : found
+                  ? "metric-hot"
+                  : ""
+              }
+            >
+              {statusLabel}
+            </strong>
+
+            <small>
+              {searchPhase}
+            </small>
+
+          </div>
+
+        </section>
+
+        {/* ================= WORKSPACE ================= */}
+
+        <section className="workspace-grid">
+
+          <div className="workspace-main">
+
+            <SearchProgress
+              progress={progress}
+              searching={searching}
+              found={found}
+              onStart={startSearch}
+            />
+
+            <div className="engine-stage panel">
+
+              <div className="stage-heading">
+
+                <div>
+
+                  <span className="kicker">
+                    02 / SIGNAL MAP
+                  </span>
+
+                  <h2>
+                    ALMOST engine
+                  </h2>
+
+                </div>
+
+                <div className="stage-meta">
+
+                  <span className="pulse-ring" />
+
+                  4 variables / 1 target
+
+                </div>
+
+              </div>
+
+              <EngineScanner
+                current={current}
+                progress={progress}
+                searching={searching}
+                found={found}
+              />
+
             </div>
 
-            <label>TARGET SCENARIO</label>
+          </div>
 
-            <select
-              value={scenario}
-              onChange={(event) => {
-                setScenario(event.target.value);
-                setFound(false);
-                setProgress(0);
-              }}
-            >
-              <option value="race">Race Condition</option>
-              <option value="network">Network Timing Bug</option>
-              <option value="rare">Rare Input Bug</option>
-            </select>
+          {/* ================= CONTROL RAIL ================= */}
 
-            <label>SEARCH INTENSITY</label>
+          <aside className="control-rail">
 
-            <div className="intensity">
-              <button type="button">QUICK</button>
+            <section className="control-panel panel">
 
-              <button
-                type="button"
-                className="active"
+              <div className="section-heading">
+
+                <div>
+
+                  <span className="kicker">
+                    CONFIG / 000
+                  </span>
+
+                  <h2>
+                    Search target
+                  </h2>
+
+                </div>
+
+                <span className="panel-symbol">
+                  ◆
+                </span>
+
+              </div>
+
+              <label htmlFor="scenario">
+                TARGET SCENARIO
+              </label>
+
+              <select
+                id="scenario"
+                value={scenario}
+                onChange={changeScenario}
               >
-                DEEP
-              </button>
 
-              <button type="button">BRUTE</button>
-            </div>
+                <option value="race">
+                  Race Condition
+                </option>
 
-            <button
-              className="launch"
-              onClick={startSearch}
-              disabled={searching}
-              type="button"
-            >
-              <span>
-                {searching ? "SEARCHING..." : "START SEARCH"}
-              </span>
+                <option value="network">
+                  Network Timing Bug
+                </option>
 
-              <b>↗</b>
-            </button>
+                <option value="rare">
+                  Rare Input Bug
+                </option>
 
-            <div className="mini-stats">
-              <div>
-                <span>TESTS</span>
+              </select>
+
+              <label>
+                SEARCH INTENSITY
+              </label>
+
+              <div
+                className="intensity"
+                role="group"
+                aria-label="Search intensity"
+              >
+
+                <button type="button">
+                  QUICK
+                </button>
+
+                <button
+                  className="active"
+                  type="button"
+                >
+                  DEEP
+                </button>
+
+                <button type="button">
+                  BRUTE
+                </button>
+
+              </div>
+
+              <div className="target-summary">
+
+                <span>
+                  SCANNING FOR
+                </span>
 
                 <strong>
-                  {tests.toLocaleString()}
+                  {current.error}
                 </strong>
+
               </div>
 
-              <div>
-                <span>FAILURES</span>
+              <div className="rail-foot">
 
-                <strong className="red">
-                  {failures}
-                </strong>
-              </div>
-            </div>
-          </div>
-
-          {/* ================= CRAZY CENTER SCANNER ================= */}
-
-          <div
-            className={`scanner ${
-              searching ? "scanning" : ""
-            } ${found ? "found" : ""}`}
-          >
-            <div className="scanner-grid" />
-
-            {/* ROTATING RINGS */}
-
-            <div className="ring ring-one" />
-
-            <div className="ring ring-two" />
-
-            <div className="ring ring-three" />
-
-            {/* ORBITS */}
-
-            <div className="orbit orbit-one">
-              <div className="orbit-dot cyan" />
-            </div>
-
-            <div className="orbit orbit-two">
-              <div className="orbit-dot pink" />
-            </div>
-
-            <div className="orbit orbit-three">
-              <div className="orbit-dot orange" />
-            </div>
-
-            {/* ENERGY BEAMS */}
-
-            <div className="beam beam-one" />
-            <div className="beam beam-two" />
-            <div className="beam beam-three" />
-            <div className="beam beam-four" />
-
-            {/* ---------- INPUT NODE ---------- */}
-
-            <div className="condition-node node-input">
-              <div className="node-icon pink">
-                I
-              </div>
-
-              <span>INPUT</span>
-
-              <strong>
-                {current.input}
-              </strong>
-            </div>
-
-            {/* ---------- TIMING NODE ---------- */}
-
-            <div className="condition-node node-timing">
-              <div className="node-icon cyan">
-                T
-              </div>
-
-              <span>TIMING</span>
-
-              <strong>
-                {current.delay}
-              </strong>
-            </div>
-
-            {/* ---------- ORDER NODE ---------- */}
-
-            <div className="condition-node node-order">
-              <div className="node-icon purple">
-                O
-              </div>
-
-              <span>ORDER</span>
-
-              <strong>
-                {current.order}
-              </strong>
-            </div>
-
-            {/* ---------- LOAD NODE ---------- */}
-
-            <div className="condition-node node-load">
-              <div className="node-icon orange">
-                L
-              </div>
-
-              <span>LOAD</span>
-
-              <strong>
-                {current.load}
-              </strong>
-            </div>
-
-            {/* ================= ALMOST CORE ================= */}
-
-            <div className="engine-core">
-              <div className="core-glow" />
-
-              <div className="core-inner">
                 <span>
-                  {found
-                    ? "!"
-                    : searching
-                    ? "⌁"
-                    : "A"}
+                  MOCK DATASET
                 </span>
+
+                <b>
+                  v0.8.4
+                </b>
+
               </div>
 
-              <small>
-                {found
-                  ? "FAILURE FOUND"
-                  : searching
-                  ? "SEARCHING"
-                  : "ALMOST ENGINE"}
-              </small>
+            </section>
 
-              <div className="core-progress">
-                <div
-                  style={{
-                    width: `${progress}%`,
-                  }}
-                />
+            {/* ================= LIVE CONSOLE ================= */}
+
+            <div className="rail-console panel">
+
+              <div className="console-header">
+
+                <span>
+                  <i />
+                  LIVE CONSOLE
+                </span>
+
+                <b>
+                  ● REC
+                </b>
+
               </div>
 
-              <em>
-                {progress}%
-              </em>
-            </div>
+              <div className="console-line">
 
-            {/* FLOATING TECH DATA */}
+                <span>
+                  00:04:12
+                </span>
 
-            <div className="floating-data data-one">
-              entropy <b>0.72</b>
-            </div>
+                engine.boot({"{"} target_app {"}"})
 
-            <div className="floating-data data-two">
-              combinations <b>12,840</b>
-            </div>
+              </div>
 
-            <div className="floating-data data-three">
-              confidence{" "}
-              <b>
-                {found ? "97.4%" : "—"}
-              </b>
-            </div>
+              <div className="console-line">
 
-            {/* SCANNING LASER */}
+                <span>
+                  00:04:13
+                </span>
 
-            <div className="scan-line" />
-          </div>
+                search.space.open()
 
-          {/* ================= RIGHT LIVE PANEL ================= */}
+              </div>
 
-          <div className="live-panel panel">
-            <div className="panel-title">
-              <span>◉</span>
-              LIVE EXPLORATION
-            </div>
+              <div
+                className={`console-line ${
+                  searching
+                    ? "console-active"
+                    : ""
+                }`}
+              >
 
-            <div className="live-title">
-              CONDITION
+                <span>
+                  00:04:14
+                </span>
 
-              <strong>
                 {searching
-                  ? "EXPLORING"
+                  ? "mutate.next()"
                   : found
-                  ? "LOCKED"
-                  : "IDLE"}
-              </strong>
-            </div>
+                  ? "recipe.minimize()"
+                  : "await start()"}
 
-            <div className="live-condition">
+                <i>_</i>
 
-              <div className="live-row pink-row">
-                <span>INPUT</span>
-
-                <code>
-                  {current.input}
-                </code>
-              </div>
-
-              <div className="live-row cyan-row">
-                <span>DELAY</span>
-
-                <code>
-                  {current.delay}
-                </code>
-              </div>
-
-              <div className="live-row purple-row">
-                <span>ORDER</span>
-
-                <code>
-                  {current.order}
-                </code>
-              </div>
-
-              <div className="live-row orange-row">
-                <span>LOAD</span>
-
-                <code>
-                  {current.load}
-                </code>
               </div>
 
             </div>
 
-            <div className="activity">
+          </aside>
 
-              <div>
-                <i />
-                sampling input space
-              </div>
-
-              <div>
-                <i />
-                varying network delay
-              </div>
-
-              <div>
-                <i />
-                mutating execution order
-              </div>
-
-              <div>
-                <i />
-                probing load conditions
-              </div>
-
-            </div>
-          </div>
         </section>
+
+        {/* ================= CONDITION PANEL ================= */}
+
+        <ConditionPanel
+          current={current}
+          searching={searching}
+          progress={progress}
+        />
 
         {/* ================= FAILURE RESULT ================= */}
 
         {found && (
-          <section className="failure-result">
-
-            <div className="failure-glow" />
-
-            <div className="failure-label">
-              <span>!</span>
-
-              INTERMITTENT FAILURE DETECTED
-            </div>
-
-            <h2>
-              Failure Found
-            </h2>
-
-            <p>
-              {current.error}
-            </p>
-
-            <div className="failure-values">
-
-              <div>
-                <small>INPUT</small>
-
-                <strong>
-                  {current.input}
-                </strong>
-              </div>
-
-              <div>
-                <small>NETWORK DELAY</small>
-
-                <strong>
-                  {current.delay}
-                </strong>
-              </div>
-
-              <div>
-                <small>EXECUTION ORDER</small>
-
-                <strong>
-                  {current.order}
-                </strong>
-              </div>
-
-              <div>
-                <small>LOAD</small>
-
-                <strong>
-                  {current.load}
-                </strong>
-              </div>
-
-            </div>
-          </section>
+          <FailureResult
+            current={current}
+            copied={copied}
+            onCopy={copyRecipe}
+          />
         )}
 
-        {/* ================= FAILURE RECIPE ================= */}
+        {/* ================= HISTORY ================= */}
 
-        {found && (
-          <section className="recipe panel">
+        <TestHistory
+          history={history}
+        />
 
-            <div className="recipe-top">
+        {/* ================= FOOTER ================= */}
 
-              <div>
-                <span>
-                  02 / MINIMIZED RESULT
-                </span>
+        <footer className="dashboard-footer">
 
-                <h2>
-                  Minimal Failure Recipe
-                </h2>
-              </div>
+          <span>
+            ALMOST // DISCOVER WHAT ONLY HAPPENS SOMETIMES
+          </span>
 
-              <button
-                type="button"
-                onClick={copyRecipe}
-              >
-                COPY RECIPE
-              </button>
+          <span>
+            BUILD 1.0.0
+            <i />
+            FRONTEND MOCK
+          </span>
 
-            </div>
+        </footer>
 
-            <div className="recipe-code">
-
-              <span>01</span>
-
-              <code>
-                input ={" "}
-                <b>
-                  {current.input}
-                </b>
-              </code>
-
-              <span>02</span>
-
-              <code>
-                delay ={" "}
-                <b>
-                  {current.delay}
-                </b>
-              </code>
-
-              <span>03</span>
-
-              <code>
-                order ={" "}
-                <b>
-                  {current.order}
-                </b>
-              </code>
-
-              <span>04</span>
-
-              <code>
-                load ={" "}
-                <b>
-                  {current.load}
-                </b>
-              </code>
-
-            </div>
-          </section>
-        )}
-
-        {/* ================= SEARCH HISTORY ================= */}
-
-        <section className="history panel">
-
-          <div className="panel-title">
-            <span>▤</span>
-            SEARCH HISTORY
-          </div>
-
-          <div className="history-row history-head">
-            <span>SCENARIO</span>
-            <span>STATUS</span>
-            <span>TESTS</span>
-            <span>TIME</span>
-          </div>
-
-          <div className="history-row">
-
-            <span>
-              Race Condition
-            </span>
-
-            <b className="history-fail">
-              FAILURE FOUND
-            </b>
-
-            <span>
-              2,481
-            </span>
-
-            <span>
-              2m ago
-            </span>
-
-          </div>
-
-          <div className="history-row">
-
-            <span>
-              Network Timing Bug
-            </span>
-
-            <b className="history-pass">
-              NO FAILURE
-            </b>
-
-            <span>
-              1,942
-            </span>
-
-            <span>
-              8m ago
-            </span>
-
-          </div>
-
-          <div className="history-row">
-
-            <span>
-              Rare Input Bug
-            </span>
-
-            <b className="history-fail">
-              FAILURE FOUND
-            </b>
-
-            <span>
-              4,821
-            </span>
-
-            <span>
-              17m ago
-            </span>
-
-          </div>
-
-        </section>
       </main>
+
     </div>
   );
 }
