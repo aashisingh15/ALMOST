@@ -17,4 +17,3 @@ def get_scenarios():
             "High",
         ],
     }
-    
