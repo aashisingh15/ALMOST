@@ -1,13 +1,5 @@
 from .analyzer import analyze_failure
-
-
-def demo_bug(condition):
-    """
-    Temporary bug used to test ALMOST.
-    """
-
-    if condition.delay_ms == 173 and condition.execution_order == "A-C-B":
-        raise RuntimeError("Intermittent race condition detected")
+from target_app.bug import run_bug
 
 
 def main():
@@ -15,16 +7,16 @@ def main():
     print("        ALMOST v0.1")
     print("================================")
 
-    print("\nSearching for intermittent failures...\n")
+    print("\nAnalyzing target application...\n")
 
-    report = analyze_failure(demo_bug)
-
-    if report["failures_found"] == 0:
-        print("No failures found.")
-        return
+    report = analyze_failure(run_bug)
 
     print(f"Total conditions tested: {report['conditions_tested']}")
     print(f"Total failures found: {report['failures_found']}")
+
+    if report["failures_found"] == 0:
+        print("\nNo failures found.")
+        return
 
     print("\n" + "=" * 40)
     print("FAILURE ANALYSIS")
